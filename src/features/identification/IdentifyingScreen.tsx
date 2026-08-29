@@ -23,6 +23,13 @@ export function IdentifyingScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const started = useRef(false);
+  const identifyRef = useRef(captureAndIdentify);
+  const routerRef = useRef(router);
+
+  useEffect(() => {
+    identifyRef.current = captureAndIdentify;
+    routerRef.current = router;
+  }, [captureAndIdentify, router]);
 
   useEffect(() => {
     if (fixture) {
@@ -35,7 +42,6 @@ export function IdentifyingScreen() {
       return;
     }
     started.current = true;
-    let cancelled = false;
     const image = {
       localUri: uri ?? `fixture://${fixture ?? 'northern-cardinal'}`,
       width: 1200,
@@ -44,8 +50,7 @@ export function IdentifyingScreen() {
     };
 
     void (async () => {
-      const outcome = await captureAndIdentify(image);
-      if (cancelled) return;
+      const outcome = await identifyRef.current(image);
       if (outcome.status === 'identified') {
         const steps =
           outcome.result.trail.length > 0
@@ -54,13 +59,12 @@ export function IdentifyingScreen() {
         setTrail(steps);
         const reveal = async () => {
           for (let index = 1; index <= steps.length; index += 1) {
-            if (cancelled) return;
             setVisibleCount(index);
             if (!reduceMotion) {
               await new Promise((resolve) => setTimeout(resolve, 280));
             }
           }
-          router.replace({
+          routerRef.current.replace({
             pathname: '/wildmark',
             params: {
               observationId: outcome.discovery.observationId,
@@ -73,20 +77,20 @@ export function IdentifyingScreen() {
         return;
       }
       if (outcome.status === 'ambiguous') {
-        router.replace({
+        routerRef.current.replace({
           pathname: '/identify-result',
           params: { kind: 'ambiguous', uri: image.localUri },
         });
         return;
       }
       if (outcome.status === 'higherRank') {
-        router.replace({
+        routerRef.current.replace({
           pathname: '/identify-result',
           params: { kind: 'higherRank', observationId: outcome.observationId, label: outcome.result.commonName },
         });
         return;
       }
-      router.replace({
+      routerRef.current.replace({
         pathname: '/identify-result',
         params: {
           kind: outcome.status,
@@ -97,11 +101,7 @@ export function IdentifyingScreen() {
     })().catch((caught: unknown) => {
       setError(caught instanceof Error ? caught.message : 'Something interrupted the look.');
     });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [captureAndIdentify, fixture, reduceMotion, router, uri]);
+  }, [fixture, reduceMotion, uri]);
 
   if (error) {
     return (

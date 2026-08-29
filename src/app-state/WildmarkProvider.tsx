@@ -223,7 +223,7 @@ export function WildmarkProvider({ children }: { children: ReactNode }) {
         milestoneUnlocked: discovery.milestones.length > 0,
         questAdvanced: discovery.questDeltas.some((item) => item.current > 0),
       });
-      await playFeedback(level, currentUser.soundEnabled);
+      void playFeedback(level, currentUser.soundEnabled);
     },
     [],
   );
@@ -236,7 +236,7 @@ export function WildmarkProvider({ children }: { children: ReactNode }) {
       analytics.track('image_captured');
       const stored = await persistCapturedPhoto(image);
       const prepared = { ...image, ...stored };
-      await playFeedback(1, user.soundEnabled);
+      void playFeedback(1, user.soundEnabled);
       const result = await identifyWithEngine(prepared);
       if (result.kind === 'highConfidence') {
         const discovery = await recordAcceptedIdentification(persistence.deps, {
