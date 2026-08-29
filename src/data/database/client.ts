@@ -63,11 +63,17 @@ function loadWebStore(): MemoryStore {
     return store;
   }
   try {
-    const parsed = JSON.parse(raw) as MemoryStore;
-    if (!parsed.taxa?.length) {
-      seedStore(parsed);
+    const parsed = JSON.parse(raw) as Partial<MemoryStore>;
+    const store = createMemoryStore(parsed);
+    if (!store.taxa?.length) {
+      seedStore(store);
     }
-    return parsed;
+    const collectionIds = new Set(store.collections.map((item) => item.id));
+    if (!collectionIds.has('col-sting') || !collectionIds.has('col-tiny')) {
+      seedStore(store);
+    }
+    persistWebStore(store);
+    return store;
   } catch {
     const store = createMemoryStore();
     seedStore(store);
@@ -249,7 +255,8 @@ type StoredUser = User & { _kind?: 'user' };
 
 function readUser(store: MemoryStore): User | null {
   const raw = (store as MemoryStore & { user?: StoredUser }).user;
-  return raw ?? null;
+  if (!raw) return null;
+  return { ...defaultUser(), ...raw };
 }
 
 function writeUser(store: MemoryStore, user: User): void {

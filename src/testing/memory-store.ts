@@ -56,7 +56,20 @@ export function createMemoryStore(seed?: Partial<MemoryStore>): MemoryStore {
     collectionTaxa: seed?.collectionTaxa ?? [],
     quests: seed?.quests ?? [],
     questProgress: seed?.questProgress ?? [],
-    syncActions: seed?.syncActions ?? [],
+    syncActions: (seed?.syncActions ?? []).map((action) =>
+      'id' in action
+        ? action
+        : {
+            id: createId(),
+            type: (action as { type: string }).type,
+            payload: (action as { payload: Record<string, unknown> }).payload,
+            state: 'pending',
+            attemptCount: 0,
+            lastError: null,
+            nextRetryAt: null,
+            createdAt: new Date().toISOString(),
+          },
+    ),
     events: seed?.events ?? [],
     milestones: seed?.milestones ?? [],
   };
@@ -229,11 +242,13 @@ export function createMemoryRepositories(store: MemoryStore): {
     },
     milestones: {
       async list(userId) {
+        store.milestones ??= [];
         return store.milestones
           .filter((item) => item.userId === userId)
           .map(({ userId: _userId, ...milestone }) => milestone);
       },
       async add(userId, milestones) {
+        store.milestones ??= [];
         for (const milestone of milestones) {
           if (!store.milestones.some((item) => item.userId === userId && item.id === milestone.id)) {
             store.milestones.push({ ...milestone, userId });
@@ -241,7 +256,7 @@ export function createMemoryRepositories(store: MemoryStore): {
         }
       },
       async reset(userId) {
-        store.milestones = store.milestones.filter((item) => item.userId !== userId);
+        store.milestones = (store.milestones ?? []).filter((item) => item.userId !== userId);
       },
     },
   };

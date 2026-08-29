@@ -13,6 +13,7 @@ import type { Observation } from '@/src/domain/observations/types';
 import type { Taxon } from '@/src/domain/taxa/types';
 import type { Quest } from '@/src/domain/quests/types';
 import { SEED_TAXA } from '@/src/data/seed';
+import { createMemoryStore } from '@/src/testing/memory-store';
 
 const monarch: Taxon = {
   id: 'taxon-monarch',
@@ -234,6 +235,18 @@ describe('photo variants and hybrid engine', () => {
       fixtureId: 'northern-cardinal',
     });
     expect(result.kind).toBe('highConfidence');
+  });
+});
+
+describe('durable store migration', () => {
+  test('createMemoryStore fills missing milestones so old journals still identify', () => {
+    const store = createMemoryStore({
+      taxa: [monarch],
+      observations: [],
+    });
+    expect(store.milestones).toEqual([]);
+    expect(store.syncActions).toEqual([]);
+    expect(store.milestones.filter((item) => item.id === 'missing')).toEqual([]);
   });
 });
 
