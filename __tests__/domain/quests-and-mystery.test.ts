@@ -5,6 +5,7 @@ import type { Quest } from '@/src/domain/quests/types';
 import { mapConfidenceToKind } from '@/src/domain/identification/confidence';
 import { identificationSafetyDisclaimer, safetyNotice } from '@/src/domain/safety/copy';
 import { isAtLeastRank } from '@/src/domain/taxa/rank';
+import { sightingCopy } from '@/src/lib/datetime';
 
 const cardinal: Taxon = {
   id: 'taxon-cardinal',
@@ -139,6 +140,13 @@ describe('confidence mapping', () => {
   test('treats family-level rank as valid', () => {
     expect(isAtLeastRank('family', 'species')).toBe(false);
     expect(isAtLeastRank('species', 'family')).toBe(true);
+  });
+});
+
+describe('sighting copy', () => {
+  test('uses the specified twice phrasing for a second encounter', () => {
+    expect(sightingCopy(2)).toBe("You've seen this species twice.");
+    expect(sightingCopy(3)).toBe("You've seen this species 3 times.");
   });
 });
 

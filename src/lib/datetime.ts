@@ -23,3 +23,10 @@ export function formatJournalDate(iso: string): string {
 export function monthGroup(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 }
+
+export function sightingCopy(count: number): string {
+  if (count === 2) {
+    return "You've seen this species twice.";
+  }
+  return `You've seen this species ${count} times.`;
+}

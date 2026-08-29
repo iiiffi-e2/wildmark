@@ -1,9 +1,9 @@
 export const fonts = {
-  display: 'Fraunces-Variable',
-  ui: 'SourceSans3-Regular',
-  uiMedium: 'SourceSans3-Medium',
-  uiSemibold: 'SourceSans3-Semibold',
-  scientific: 'SourceSans3-Italic',
+  display: 'Georgia',
+  ui: 'system-ui',
+  uiMedium: 'system-ui',
+  uiSemibold: 'system-ui',
+  scientific: 'Georgia',
   mono: 'SpaceMono',
 } as const;
 

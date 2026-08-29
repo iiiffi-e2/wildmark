@@ -7,7 +7,7 @@ import { TaxonPortrait } from '@/src/design-system/components/TaxonPortrait';
 import { WildmarkSymbol } from '@/src/design-system/icons/WildmarkSymbol';
 import { useTheme } from '@/src/design-system/theme';
 import { useWildmark } from '@/src/app-state/WildmarkProvider';
-import { formatMarkDate } from '@/src/lib/datetime';
+import { formatMarkDate, sightingCopy } from '@/src/lib/datetime';
 
 export function WildmarkMomentScreen() {
   const theme = useTheme();
@@ -52,7 +52,7 @@ export function WildmarkMomentScreen() {
         <Text variant="body" style={{ marginTop: theme.space[24] }}>
           {isNew
             ? `Species ${String(speciesNumber).padStart(3, '0')}`
-            : `You've seen this species ${count ?? 'twice'}.`}
+            : sightingCopy(Number(count ?? 2))}
         </Text>
         <Text variant="bodySmall" color="secondary" style={{ marginTop: theme.space[8] }}>
           Marked {formatMarkDate(observation.observedAt)}
