@@ -2,6 +2,15 @@ import type { CollectionProgressDelta } from '../collections/types';
 import type { Badge, QuestProgressDelta } from '../quests/types';
 import type { IdentificationResult } from '../identification/types';
 import type { IdentificationStatus } from '../observations/types';
+import type { UnlockedMilestone } from '../milestones/types';
+import type { OccurrenceClass } from '@/src/services/occurrence/mock';
+import type {
+  CategoryProgressDelta,
+  ContextualRarity,
+  NearCompletion,
+  PersonalRecord,
+  RepeatSightingContext,
+} from '../progression/types';
 
 export type NewWildmarkEvent = {
   userId: string;
@@ -19,6 +28,13 @@ export type DiscoveryResult = {
   observationCountForTaxon: number;
   collectionDeltas: CollectionProgressDelta[];
   questDeltas: QuestProgressDelta[];
+  categoryDeltas: CategoryProgressDelta[];
+  milestones: UnlockedMilestone[];
+  personalRecords: PersonalRecord[];
+  rarity: ContextualRarity | null;
+  rarityLabel: string | null;
+  repeat: RepeatSightingContext | null;
+  nearCompletions: NearCompletion[];
   earnedBadges: Badge[];
   event: NewWildmarkEvent | null;
 };
@@ -54,6 +70,7 @@ export type AcceptIdentificationInput = {
   };
   notes?: string;
   now?: string;
+  occurrenceClass?: OccurrenceClass;
 };
 
 export type RecordUnidentifiedInput = {

@@ -8,7 +8,9 @@ Wildmark is a local-first field instrument for noticing living organisms, markin
 
 Discover → Scan → Identify → New Wildmark / Another Sighting → Collection → Journal
 
-The loop uses a `MockIdentificationEngine` so every identification state can be exercised before a device model is attached. A `CloudIdentificationEngine` is implemented against iNaturalist computer vision and activates only when `EXPO_PUBLIC_INATURALIST_TOKEN` is set.
+The loop uses an on-device mock classifier and a hybrid engine. A `CloudIdentificationEngine` is implemented against iNaturalist computer vision and activates only when `EXPO_PUBLIC_INATURALIST_TOKEN` is set.
+
+Collection is the game: New Wildmark reveals progress, mystery slots show what is still missing, and Home offers one more reason to look.
 
 ## Stack
 

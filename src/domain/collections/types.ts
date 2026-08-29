@@ -24,6 +24,7 @@ export type CollectionTaxon = {
 export type CollectionProgressDelta = {
   collectionId: string;
   collectionName: string;
+  previousCount: number;
   discoveredCount: number;
   totalCount: number;
   newlyCompleted: boolean;

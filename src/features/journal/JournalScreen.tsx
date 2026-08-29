@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { TextInput, View } from 'react-native';
+import { Pressable, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { EmptyState } from '@/src/design-system/components/EmptyState';
 import { ObservationCard } from '@/src/design-system/components/ObservationCard';
@@ -9,27 +9,49 @@ import { useTheme } from '@/src/design-system/theme';
 import { useWildmark } from '@/src/app-state/WildmarkProvider';
 import { formatJournalDate, monthGroup } from '@/src/lib/datetime';
 import { analytics } from '@/src/services/analytics/service';
+import { defaultJournalFilter, filterObservations, privacySafePlaces, type JournalFilter } from '@/src/domain/journal/filter';
+import { privacySafeLocality } from '@/src/domain/location/privacy';
+import { ORGANISM_CATEGORIES } from '@/src/domain/taxa/types';
+import { categoryLabel } from '@/src/data/seed';
 
 export function JournalScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { observations, taxonById } = useWildmark();
-  const [query, setQuery] = useState('');
+  const { observations, taxonById, user, taxa } = useWildmark();
+  const [filter, setFilter] = useState<JournalFilter>(defaultJournalFilter());
+  const taxaById = useMemo(() => new Map(taxa.map((taxon) => [taxon.id, taxon])), [taxa]);
 
   const grouped = useMemo(() => {
-    const filtered = observations.filter((observation) => {
-      if (!query.trim()) return true;
-      const taxon = observation.taxonId ? taxonById(observation.taxonId) : undefined;
-      const haystack = `${taxon?.commonName ?? ''} ${taxon?.scientificName ?? ''} ${observation.notes ?? ''} unidentified`.toLowerCase();
-      return haystack.includes(query.toLowerCase());
-    });
+    const filtered = filterObservations(observations, taxaById, filter);
     const map = new Map<string, typeof filtered>();
     for (const observation of filtered) {
       const key = monthGroup(observation.observedAt);
       map.set(key, [...(map.get(key) ?? []), observation]);
     }
     return [...map.entries()];
-  }, [observations, query, taxonById]);
+  }, [filter, observations, taxaById]);
+
+  const places = privacySafePlaces(observations)
+    .map((label) => privacySafeLocality(label, user.locationMode))
+    .filter((value): value is string => Boolean(value));
+
+  const chip = (label: string, active: boolean, onPress: () => void) => (
+    <Pressable
+      key={label}
+      onPress={onPress}
+      accessibilityRole="button"
+      style={{
+        marginRight: theme.space[12],
+        marginBottom: theme.space[8],
+        borderBottomWidth: 1,
+        borderBottomColor: active ? theme.color.discovery.mark : theme.color.border.subtle,
+        paddingBottom: 4,
+      }}>
+      <Text variant="kicker" color={active ? 'mark' : 'tertiary'}>
+        {label}
+      </Text>
+    </Pressable>
+  );
 
   return (
     <Screen>
@@ -40,8 +62,8 @@ export function JournalScreen() {
         Encounters
       </Text>
       <TextInput
-        value={query}
-        onChangeText={setQuery}
+        value={filter.query}
+        onChangeText={(query) => setFilter((current) => ({ ...current, query }))}
         placeholder="Search notes and names"
         placeholderTextColor={theme.color.text.tertiary}
         accessibilityLabel="Search journal"
@@ -54,6 +76,32 @@ export function JournalScreen() {
           fontSize: 16,
         }}
       />
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: theme.space[16] }}>
+        {chip('All', filter.status === 'all' && filter.category === 'all', () => setFilter(defaultJournalFilter()))}
+        {chip('Identified', filter.status === 'identified', () => setFilter((current) => ({ ...current, status: 'identified' })))}
+        {chip('Unidentified', filter.status === 'unidentified', () => setFilter((current) => ({ ...current, status: 'unidentified' })))}
+        {chip('Favorites', filter.status === 'favorite', () => setFilter((current) => ({ ...current, status: 'favorite' })))}
+        {ORGANISM_CATEGORIES.slice(0, 5).map((category) =>
+          chip(categoryLabel(category), filter.category === category, () =>
+            setFilter((current) => ({ ...current, category: current.category === category ? 'all' : category })),
+          ),
+        )}
+      </View>
+      {places.length > 0 && user.locationMode !== 'none' ? (
+        <View style={{ marginTop: theme.space[24] }}>
+          <Text variant="kicker" color="secondary">
+            Places
+          </Text>
+          <Text variant="bodySmall" color="tertiary" style={{ marginTop: 6 }}>
+            Generalized areas only. Exact coordinates stay off the map.
+          </Text>
+          {places.map((place) => (
+            <Text key={place} variant="body" style={{ marginTop: theme.space[8] }}>
+              {place}
+            </Text>
+          ))}
+        </View>
+      ) : null}
       {grouped.length === 0 ? (
         <EmptyState
           title="The journal is still empty"
@@ -74,7 +122,7 @@ export function JournalScreen() {
                     title={taxon?.commonName ?? 'Unidentified'}
                     subtitle={taxon?.scientificName ?? observation.identificationStatus}
                     dateLabel={formatJournalDate(observation.observedAt)}
-                    placeLabel={observation.localityLabel}
+                    placeLabel={privacySafeLocality(observation.localityLabel, user.locationMode)}
                     taxonId={taxon?.id}
                     category={taxon?.category}
                     onPress={() => {

@@ -12,4 +12,6 @@ export type User = {
   locationMode: LocationMode;
   onboardingCompleted: boolean;
   appearance: AppearanceMode;
+  soundEnabled: boolean;
+  favoriteTaxonId: string | null;
 };

@@ -74,6 +74,7 @@ function RootLayoutNav() {
         <Stack.Screen name="identify-result" options={{ presentation: 'modal' }} />
         <Stack.Screen name="wildmark" options={{ presentation: 'fullScreenModal' }} />
         <Stack.Screen name="settings" />
+        <Stack.Screen name="recap" />
         <Stack.Screen name="debug" options={{ presentation: 'modal' }} />
       </Stack>
     </>

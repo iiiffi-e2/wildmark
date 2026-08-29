@@ -8,22 +8,60 @@ import { Text } from '@/src/design-system/components/Text';
 import { useTheme } from '@/src/design-system/theme';
 import { mysteryForTaxon, useWildmark } from '@/src/app-state/WildmarkProvider';
 import { analytics } from '@/src/services/analytics/service';
+import { categoryLabel } from '@/src/data/seed';
+import type { OrganismCategory } from '@/src/domain/taxa/types';
 
 export function CollectionScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { collections, collectionProgress, taxa, userTaxa, user } = useWildmark();
+  const { collections, collectionProgress, taxa, userTaxa, user, categoryCounts, collectionTaxonIds } = useWildmark();
   const discoveredIds = new Set(userTaxa.map((item) => item.taxonId));
+  const closest = [...collectionProgress]
+    .filter((item) => item.totalCount > item.discoveredCount)
+    .sort((a, b) => a.totalCount - a.discoveredCount - (b.totalCount - b.discoveredCount))[0];
+  const mysteryFromClosest = closest
+    ? collectionTaxonIds(closest.collectionId)
+        .map((id) => taxa.find((taxon) => taxon.id === id))
+        .filter((taxon): taxon is NonNullable<typeof taxon> => Boolean(taxon) && !discoveredIds.has(taxon.id))
+        .slice(0, 4)
+    : taxa.filter((taxon) => !discoveredIds.has(taxon.id)).slice(0, 4);
 
   return (
     <Screen>
       <Text variant="kicker" color="secondary">
-        Collection
+        Your world
       </Text>
       <Text variant="display" style={{ marginTop: theme.space[8] }}>
-        Field cabinet
+        {userTaxa.length} species discovered
       </Text>
-      <View style={{ marginTop: theme.space[16] }}>
+      <View style={{ marginTop: theme.space[16], gap: theme.space[8] }}>
+        {categoryCounts.length === 0 ? (
+          <Text variant="body" color="secondary">
+            The cabinet is empty. The first mark begins the collection.
+          </Text>
+        ) : (
+          categoryCounts.map((item) => (
+            <Text key={item.category} variant="title">
+              {item.count} {categoryLabel(item.category as OrganismCategory)}
+            </Text>
+          ))
+        )}
+      </View>
+      {closest ? (
+        <View style={{ marginTop: theme.space[32] }}>
+          <Text variant="kicker" color="mark">
+            Closest set
+          </Text>
+          <Text variant="title" style={{ marginTop: theme.space[8] }}>
+            {closest.collectionName}
+          </Text>
+          <Text variant="body" color="secondary" style={{ marginTop: 4 }}>
+            {closest.discoveredCount} / {closest.totalCount}
+            {closest.totalCount - closest.discoveredCount === 1 ? ' · one space left' : ` · ${closest.totalCount - closest.discoveredCount} left`}
+          </Text>
+        </View>
+      ) : null}
+      <View style={{ marginTop: theme.space[32] }}>
         {collections.map((collection) => {
           const progress = collectionProgress.find((item) => item.collectionId === collection.id);
           return (
@@ -42,24 +80,30 @@ export function CollectionScreen() {
         })}
       </View>
       <Text variant="kicker" color="secondary" style={{ marginTop: theme.space[40] }}>
-        Species
+        Found
       </Text>
       <View style={{ marginTop: theme.space[16], gap: theme.space[24] }}>
-        {taxa.map((taxon) => {
-          const owned = userTaxa.find((item) => item.taxonId === taxon.id);
-          if (owned) {
-            return (
-              <SpeciesTile
-                key={taxon.id}
-                taxonId={taxon.id}
-                commonName={taxon.commonName}
-                scientificName={taxon.scientificName}
-                category={taxon.category}
-                observationCount={owned.observationCount}
-                onPress={() => router.push(`/taxon/${taxon.id}`)}
-              />
-            );
-          }
+        {userTaxa.map((owned) => {
+          const taxon = taxa.find((item) => item.id === owned.taxonId);
+          if (!taxon) return null;
+          return (
+            <SpeciesTile
+              key={taxon.id}
+              taxonId={taxon.id}
+              commonName={taxon.commonName}
+              scientificName={taxon.scientificName}
+              category={taxon.category}
+              observationCount={owned.observationCount}
+              onPress={() => router.push(`/taxon/${taxon.id}`)}
+            />
+          );
+        })}
+      </View>
+      <Text variant="kicker" color="secondary" style={{ marginTop: theme.space[40] }}>
+        Still missing
+      </Text>
+      <View style={{ marginTop: theme.space[16], gap: theme.space[24] }}>
+        {mysteryFromClosest.map((taxon) => {
           const mystery = mysteryForTaxon(taxon, user.experienceMode === 'explorer');
           return (
             <MysterySpeciesTile
@@ -67,11 +111,10 @@ export function CollectionScreen() {
               taxonId={taxon.id}
               category={taxon.category}
               clue={mystery.clue}
-              onPress={() => router.push(`/collection/col-north-texas`)}
+              onPress={() => router.push(`/collection/${closest?.collectionId ?? 'col-north-texas'}`)}
             />
           );
         })}
-        {discoveredIds.size === 0 ? null : null}
       </View>
     </Screen>
   );

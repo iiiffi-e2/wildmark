@@ -9,12 +9,13 @@ import { WildmarkTarget } from '@/src/design-system/icons/WildmarkTarget';
 import { useTheme } from '@/src/design-system/theme';
 import { useWildmark } from '@/src/app-state/WildmarkProvider';
 import { analytics } from '@/src/services/analytics/service';
+import { playFeedback } from '@/src/services/feedback/service';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export function ScanScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { selectedFixture } = useWildmark();
+  const { selectedFixture, user } = useWildmark();
   const [permission, requestPermission] = useCameraPermissions();
   const [cameraReady, setCameraReady] = useState(false);
   const camera = useRef<CameraView | null>(null);
@@ -42,6 +43,7 @@ export function ScanScreen() {
   };
 
   const capture = async () => {
+    await playFeedback(2, user.soundEnabled);
     const instance = camera.current;
     if (!instance) {
       takeSample();

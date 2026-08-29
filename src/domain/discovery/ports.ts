@@ -13,6 +13,7 @@ import type {
 import type { Quest, UserQuestProgress } from '../quests/types';
 import type { Taxon } from '../taxa/types';
 import type { NewWildmarkEvent } from './types';
+import type { UnlockedMilestone } from '../milestones/types';
 
 export interface ObservationRepository {
   get(id: string): Promise<Observation | null>;
@@ -60,6 +61,13 @@ export interface SyncQueue {
     type: string;
     payload: Record<string, unknown>;
   }): Promise<void>;
+  list?(): Promise<{ type: string; payload: Record<string, unknown> }[]>;
+}
+
+export interface MilestoneRepository {
+  list(userId: string): Promise<UnlockedMilestone[]>;
+  add(userId: string, milestones: UnlockedMilestone[]): Promise<void>;
+  reset(userId: string): Promise<void>;
 }
 
 export interface DiscoveryEventBus {

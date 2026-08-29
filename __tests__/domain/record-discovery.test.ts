@@ -126,9 +126,69 @@ describe('recordAcceptedIdentification', () => {
     expect(store.syncActions.some((action) => action.type === 'createObservation')).toBe(true);
     expect(result.collectionDeltas[0]).toMatchObject({
       collectionId: birds.id,
+      previousCount: 0,
       discoveredCount: 1,
       totalCount: 1,
     });
+    expect(result.milestones.map((item) => item.id)).toEqual(
+      expect.arrayContaining(['ms-first-wildmark', 'ms-first-bird']),
+    );
+    expect(store.milestones.map((item) => item.id)).toEqual(
+      expect.arrayContaining(['ms-first-wildmark', 'ms-first-bird']),
+    );
+  });
+
+  test('does not unlock the same milestone twice', async () => {
+    const store = createMemoryStore({
+      taxa: [cardinal, monarch],
+      collections: [birds],
+      collectionTaxa: [
+        { collectionId: birds.id, taxonId: cardinal.id },
+        { collectionId: birds.id, taxonId: monarch.id },
+      ],
+      quests: [firstFive],
+    });
+    const deps = createMemoryRepositories(store);
+    await recordAcceptedIdentification(deps, sampleInput());
+    const secondSpecies = await recordAcceptedIdentification(
+      deps,
+      sampleInput({
+        selectedTaxonId: monarch.id,
+        observedAt: '2026-08-29T13:00:00.000Z',
+        now: '2026-08-29T13:00:00.000Z',
+        identification: {
+          engine: 'mock',
+          modelVersion: 'fixtures-1',
+          result: {
+            kind: 'highConfidence',
+            taxonId: monarch.id,
+            commonName: monarch.commonName,
+            scientificName: monarch.scientificName,
+            confidence: 0.9,
+            trail: [],
+          },
+        },
+      }),
+    );
+    expect(secondSpecies.milestones.map((item) => item.id)).not.toContain('ms-first-wildmark');
+    expect(store.milestones.filter((item) => item.id === 'ms-first-wildmark')).toHaveLength(1);
+  });
+
+  test('uses occurrence class for rarity without inventing percentages', async () => {
+    const store = createMemoryStore({
+      taxa: [cardinal],
+      collections: [birds],
+      collectionTaxa: [{ collectionId: birds.id, taxonId: cardinal.id }],
+      quests: [firstFive],
+    });
+    const deps = createMemoryRepositories(store);
+    const result = await recordAcceptedIdentification(
+      deps,
+      sampleInput({ occurrenceClass: 'rare' }),
+    );
+    expect(result.rarity).toBe('rareFind');
+    expect(result.rarityLabel).toBe('Rare find');
+    expect(result.rarityLabel).not.toMatch(/%/);
   });
 
   test('records Another Sighting without a second Wildmark', async () => {

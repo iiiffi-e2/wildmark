@@ -44,6 +44,20 @@ export const SEED_COLLECTIONS: Collection[] = [
     type: 'seasonal',
     coverCategory: 'plant',
   },
+  {
+    id: 'col-sting',
+    name: 'Things That Sting',
+    description: 'Observe from a distance. Do not handle.',
+    type: 'themed',
+    coverCategory: 'insect',
+  },
+  {
+    id: 'col-tiny',
+    name: 'Tiny Things',
+    description: 'The overlooked world near flowers and ground.',
+    type: 'themed',
+    coverCategory: 'insect',
+  },
 ];
 
 const backyardHabitats = new Set(['backyard', 'lawn', 'fence', 'eaves', 'shrub', 'garden']);
@@ -75,4 +89,18 @@ export const SEED_COLLECTION_TAXA: { collectionId: string; taxonId: string }[] =
       taxonId,
     }),
   ),
+  ...['taxon-paper-wasp', 'taxon-honey-bee', 'taxon-american-bumble-bee'].map((taxonId) => ({
+    collectionId: 'col-sting',
+    taxonId,
+  })),
+  ...[
+    'taxon-honey-bee',
+    'taxon-american-bumble-bee',
+    'taxon-firefly',
+    'taxon-carolina-chickadee',
+    'taxon-dandelion',
+  ].map((taxonId) => ({
+    collectionId: 'col-tiny',
+    taxonId,
+  })),
 ];

@@ -4,8 +4,13 @@ import type {
   CollectionProgressDelta,
 } from '../collections/types';
 import type { IdentificationCandidate } from '../identification/types';
-import type { ObservationPhoto } from '../observations/types';
+import type { ObservationPhoto, UserTaxon } from '../observations/types';
 import type { QuestProgressDelta } from '../quests/types';
+import { evaluateMilestones } from '../milestones/evaluate';
+import { MILESTONE_RULES } from '../milestones/rules';
+import { personalRecordsFor, rarityFromOccurrence, rarityLabel, repeatSightingContext } from '../progression/rarity';
+import { nearCompletions } from '../progression/next-discovery';
+import type { CategoryProgressDelta } from '../progression/types';
 import type {
   CollectionRepository,
   DiscoveryEventBus,
@@ -13,6 +18,7 @@ import type {
   ObservationPhotoRepository,
   ObservationRepository,
   QuestRepository,
+  MilestoneRepository,
   SyncQueue,
   TaxonRepository,
   UserTaxonRepository,
@@ -34,6 +40,7 @@ export type DiscoveryDependencies = {
   quests: QuestRepository;
   syncQueue: SyncQueue;
   events: DiscoveryEventBus;
+  milestones: MilestoneRepository;
 };
 
 function photoFromInput(
@@ -54,28 +61,62 @@ function photoFromInput(
   };
 }
 
-async function collectionDeltas(
+async function collectionSnapshot(
   deps: DiscoveryDependencies,
   userId: string,
-): Promise<CollectionProgressDelta[]> {
+): Promise<Map<string, { name: string; discovered: number; total: number }>> {
   const [collections, userTaxa] = await Promise.all([
     deps.collections.list(),
     deps.userTaxa.list(userId),
   ]);
   const discovered = new Set(userTaxa.map((item) => item.taxonId));
-  const deltas: CollectionProgressDelta[] = [];
+  const snapshot = new Map<string, { name: string; discovered: number; total: number }>();
   for (const collection of collections) {
     const taxonIds = await deps.collections.listTaxonIds(collection.id);
-    const discoveredCount = taxonIds.filter((id) => discovered.has(id)).length;
-    deltas.push({
-      collectionId: collection.id,
-      collectionName: collection.name,
-      discoveredCount,
-      totalCount: taxonIds.length,
-      newlyCompleted: taxonIds.length > 0 && discoveredCount === taxonIds.length,
+    snapshot.set(collection.id, {
+      name: collection.name,
+      discovered: taxonIds.filter((id) => discovered.has(id)).length,
+      total: taxonIds.length,
     });
   }
-  return deltas;
+  return snapshot;
+}
+
+function collectionDeltasFrom(
+  before: Map<string, { name: string; discovered: number; total: number }>,
+  after: Map<string, { name: string; discovered: number; total: number }>,
+): CollectionProgressDelta[] {
+  return [...after.entries()].map(([collectionId, current]) => {
+    const previous = before.get(collectionId)?.discovered ?? 0;
+    return {
+      collectionId,
+      collectionName: current.name,
+      previousCount: previous,
+      discoveredCount: current.discovered,
+      totalCount: current.total,
+      newlyCompleted: current.total > 0 && previous < current.total && current.discovered === current.total,
+    };
+  });
+}
+
+function categoryDeltas(previous: UserTaxon[], current: UserTaxon[], taxaById: Map<string, import('../taxa/types').Taxon>): CategoryProgressDelta[] {
+  const count = (rows: UserTaxon[]) => {
+    const map = new Map<string, number>();
+    for (const row of rows) {
+      const category = taxaById.get(row.taxonId)?.category;
+      if (!category) continue;
+      map.set(category, (map.get(category) ?? 0) + 1);
+    }
+    return map;
+  };
+  const before = count(previous);
+  const after = count(current);
+  const keys = new Set([...before.keys(), ...after.keys()]);
+  return [...keys].map((category) => ({
+    category,
+    previous: before.get(category) ?? 0,
+    current: after.get(category) ?? 0,
+  }));
 }
 
 async function questDeltas(
@@ -193,6 +234,8 @@ export async function recordAcceptedIdentification(
   });
   await deps.identifications.addCandidates(attempt.id, candidatesFromResult(input));
 
+  const previousUserTaxa = await deps.userTaxa.list(input.userId);
+  const beforeCollections = await collectionSnapshot(deps, input.userId);
   let isNewWildmark = false;
   let observationCountForTaxon = 0;
 
@@ -221,10 +264,37 @@ export async function recordAcceptedIdentification(
     }
   }
 
-  const [collections, quests] = await Promise.all([
-    collectionDeltas(deps, input.userId),
-    questDeltas(deps, input.userId, now),
+  const afterCollections = await collectionSnapshot(deps, input.userId);
+  const collections = collectionDeltasFrom(beforeCollections, afterCollections);
+  const quests = await questDeltas(deps, input.userId, now);
+  const taxa = await deps.taxa.list();
+  const taxaById = new Map(taxa.map((taxon) => [taxon.id, taxon]));
+  const currentUserTaxa = await deps.userTaxa.list(input.userId);
+  const taxon = taxaById.get(input.selectedTaxonId) ?? null;
+  const observations = await deps.observations.list({ userId: input.userId });
+  const alreadyUnlocked = new Set((await deps.milestones.list(input.userId)).map((item) => item.id));
+  const milestones = evaluateMilestones({
+    isNewWildmark,
+    taxon,
+    userTaxa: currentUserTaxa,
+    taxaById,
+    collectionDeltas: collections,
+    alreadyUnlocked,
+    now,
+  }, [
+    ...MILESTONE_RULES,
+    ...collections
+      .filter((item) => item.newlyCompleted)
+      .map((item) => ({
+        id: `ms-complete-${item.collectionId}`,
+        name: `${item.collectionName} complete`,
+        kind: 'collectionComplete' as const,
+        collectionId: item.collectionId,
+      })),
   ]);
+  if (milestones.length > 0) {
+    await deps.milestones.add(input.userId, milestones);
+  }
 
   await deps.syncQueue.enqueue({
     type: 'createObservation',
@@ -246,6 +316,7 @@ export async function recordAcceptedIdentification(
     deps.events.emit(event);
   }
 
+  const owned = currentUserTaxa.find((item) => item.taxonId === input.selectedTaxonId);
   return {
     observationId: observation.id,
     taxonId: input.selectedTaxonId,
@@ -253,7 +324,32 @@ export async function recordAcceptedIdentification(
     observationCountForTaxon,
     collectionDeltas: collections,
     questDeltas: quests,
-    earnedBadges: [],
+    categoryDeltas: categoryDeltas(previousUserTaxa, currentUserTaxa, taxaById),
+    milestones,
+    personalRecords: personalRecordsFor({
+      isNewWildmark,
+      taxon,
+      userTaxa: currentUserTaxa,
+      previousUserTaxa,
+      taxaById,
+      observations,
+    }),
+    rarity: rarityFromOccurrence(input.occurrenceClass, taxon),
+    rarityLabel: rarityLabel(rarityFromOccurrence(input.occurrenceClass, taxon)),
+    repeat:
+      !isNewWildmark && owned
+        ? repeatSightingContext({
+            userTaxon: owned,
+            observations,
+            localityLabel: input.location?.localityLabel,
+          })
+        : null,
+    nearCompletions: nearCompletions({
+      collections,
+      quests,
+      speciesCount: currentUserTaxa.length,
+    }),
+    earnedBadges: milestones.map((item) => ({ id: item.id, name: item.name })),
     event,
   };
 }
@@ -293,6 +389,8 @@ export async function correctObservationIdentification(
   }
 
   const previousTaxonId = observation.taxonId;
+  const previousUserTaxa = await deps.userTaxa.list(input.userId);
+  const beforeCollections = await collectionSnapshot(deps, input.userId);
   await deps.observations.update(observation.id, {
     taxonId: input.selectedTaxonId,
     identificationStatus: 'identified',
@@ -352,10 +450,27 @@ export async function correctObservationIdentification(
     isNewWildmark = true;
   }
 
-  const [collections, quests] = await Promise.all([
-    collectionDeltas(deps, input.userId),
-    questDeltas(deps, input.userId, now),
-  ]);
+  const afterCollections = await collectionSnapshot(deps, input.userId);
+  const collections = collectionDeltasFrom(beforeCollections, afterCollections);
+  const quests = await questDeltas(deps, input.userId, now);
+  const taxa = await deps.taxa.list();
+  const taxaById = new Map(taxa.map((taxon) => [taxon.id, taxon]));
+  const currentUserTaxa = await deps.userTaxa.list(input.userId);
+  const taxon = taxaById.get(input.selectedTaxonId) ?? null;
+  const observations = await deps.observations.list({ userId: input.userId });
+  const alreadyUnlocked = new Set((await deps.milestones.list(input.userId)).map((item) => item.id));
+  const milestones = evaluateMilestones({
+    isNewWildmark,
+    taxon,
+    userTaxa: currentUserTaxa,
+    taxaById,
+    collectionDeltas: collections,
+    alreadyUnlocked,
+    now,
+  });
+  if (milestones.length > 0) {
+    await deps.milestones.add(input.userId, milestones);
+  }
 
   await deps.syncQueue.enqueue({
     type: 'updateObservation',
@@ -383,7 +498,25 @@ export async function correctObservationIdentification(
     observationCountForTaxon,
     collectionDeltas: collections,
     questDeltas: quests,
-    earnedBadges: [],
+    categoryDeltas: categoryDeltas(previousUserTaxa, currentUserTaxa, taxaById),
+    milestones,
+    personalRecords: personalRecordsFor({
+      isNewWildmark,
+      taxon,
+      userTaxa: currentUserTaxa,
+      previousUserTaxa,
+      taxaById,
+      observations,
+    }),
+    rarity: rarityFromOccurrence(undefined, taxon),
+    rarityLabel: rarityLabel(rarityFromOccurrence(undefined, taxon)),
+    repeat: null,
+    nearCompletions: nearCompletions({
+      collections,
+      quests,
+      speciesCount: currentUserTaxa.length,
+    }),
+    earnedBadges: milestones.map((item) => ({ id: item.id, name: item.name })),
     event,
   };
 }

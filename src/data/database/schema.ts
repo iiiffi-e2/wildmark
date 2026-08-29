@@ -173,6 +173,14 @@ CREATE TABLE IF NOT EXISTS sync_queue (
   created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS user_milestones (
+  user_id TEXT NOT NULL,
+  milestone_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  unlocked_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, milestone_id)
+);
+
 CREATE TABLE IF NOT EXISTS app_meta (
   key TEXT PRIMARY KEY NOT NULL,
   value TEXT NOT NULL

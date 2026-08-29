@@ -12,6 +12,8 @@ import type {
 } from '@/src/domain/discovery/ports';
 import type { Collection } from '@/src/domain/collections/types';
 import type { NewWildmarkEvent } from '@/src/domain/discovery/types';
+import type { UnlockedMilestone } from '@/src/domain/milestones/types';
+import type { QueuedSyncAction } from '@/src/services/sync/backoff';
 import type {
   IdentificationAttempt,
   IdentificationCandidate,
@@ -37,8 +39,9 @@ export type MemoryStore = {
   collectionTaxa: { collectionId: string; taxonId: string }[];
   quests: Quest[];
   questProgress: UserQuestProgress[];
-  syncActions: { type: string; payload: Record<string, unknown> }[];
+  syncActions: QueuedSyncAction[];
   events: NewWildmarkEvent[];
+  milestones: (UnlockedMilestone & { userId: string })[];
 };
 
 export function createMemoryStore(seed?: Partial<MemoryStore>): MemoryStore {
@@ -55,6 +58,7 @@ export function createMemoryStore(seed?: Partial<MemoryStore>): MemoryStore {
     questProgress: seed?.questProgress ?? [],
     syncActions: seed?.syncActions ?? [],
     events: seed?.events ?? [],
+    milestones: seed?.milestones ?? [],
   };
 }
 
@@ -68,6 +72,7 @@ export function createMemoryRepositories(store: MemoryStore): {
   quests: QuestRepository;
   syncQueue: SyncQueue;
   events: DiscoveryEventBus;
+  milestones: import('@/src/domain/discovery/ports').MilestoneRepository;
 } {
   return {
     observations: {
@@ -202,12 +207,41 @@ export function createMemoryRepositories(store: MemoryStore): {
     },
     syncQueue: {
       async enqueue(action) {
-        store.syncActions.push(action);
+        store.syncActions.push({
+          id: createId(),
+          type: action.type,
+          payload: action.payload,
+          state: 'pending',
+          attemptCount: 0,
+          lastError: null,
+          nextRetryAt: null,
+          createdAt: new Date().toISOString(),
+        });
+      },
+      async list() {
+        return store.syncActions.map((item) => ({ type: item.type, payload: item.payload }));
       },
     },
     events: {
       emit(event) {
         store.events.push(event);
+      },
+    },
+    milestones: {
+      async list(userId) {
+        return store.milestones
+          .filter((item) => item.userId === userId)
+          .map(({ userId: _userId, ...milestone }) => milestone);
+      },
+      async add(userId, milestones) {
+        for (const milestone of milestones) {
+          if (!store.milestones.some((item) => item.userId === userId && item.id === milestone.id)) {
+            store.milestones.push({ ...milestone, userId });
+          }
+        }
+      },
+      async reset(userId) {
+        store.milestones = store.milestones.filter((item) => item.userId !== userId);
       },
     },
   };

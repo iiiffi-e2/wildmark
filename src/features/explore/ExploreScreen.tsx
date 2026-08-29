@@ -8,14 +8,25 @@ import { useTheme } from '@/src/design-system/theme';
 import { mysteryForTaxon, useWildmark } from '@/src/app-state/WildmarkProvider';
 import { analytics } from '@/src/services/analytics/service';
 import { evaluateQuestProgress } from '@/src/domain/quests/evaluate';
-import { SEED_COLLECTION_TAXA } from '@/src/data/seed';
 
 export function ExploreScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { nearby, userTaxa, taxonById, user, quests, taxa, observations, startExplorerSession } = useWildmark();
+  const {
+    nearby,
+    userTaxa,
+    taxonById,
+    user,
+    quests,
+    taxa,
+    observations,
+    startExplorerSession,
+    recommendations,
+    collectionTaxonIds,
+  } = useWildmark();
   const discovered = new Set(userTaxa.map((item) => item.taxonId));
   const waiting = nearby.filter((item) => !discovered.has(item.taxonId)).slice(0, 6);
+  const next = recommendations[0];
 
   return (
     <Screen padded={false}>
@@ -29,6 +40,19 @@ export function ExploreScreen() {
         <Text variant="body" color="secondary" style={{ marginTop: theme.space[12] }}>
           These organisms are likely nearby. None of this is a promise — only a reason to look.
         </Text>
+        {next ? (
+          <View style={{ marginTop: theme.space[20] }}>
+            <Text variant="kicker" color="mark">
+              One more
+            </Text>
+            <Text variant="title" style={{ marginTop: 6 }}>
+              {next.title}
+            </Text>
+            <Text variant="bodySmall" color="secondary" style={{ marginTop: 6 }}>
+              {next.body}
+            </Text>
+          </View>
+        ) : null}
       </View>
       <View style={{ marginTop: theme.space[24] }}>
         {waiting.map((item) => {
@@ -73,9 +97,7 @@ export function ExploreScreen() {
             if (requirement.kind === 'collection') {
               collectionMap.set(
                 requirement.collectionId,
-                SEED_COLLECTION_TAXA.filter((item) => item.collectionId === requirement.collectionId).map(
-                  (item) => item.taxonId,
-                ),
+                collectionTaxonIds(requirement.collectionId),
               );
             }
           }

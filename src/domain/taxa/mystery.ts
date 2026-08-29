@@ -1,3 +1,4 @@
+import { seedTaxonById } from '@/src/data/seed';
 import type { MysteryLevel } from '../collections/types';
 import type { Taxon } from './types';
 
@@ -47,6 +48,10 @@ export function revealMystery(taxon: Taxon, level: MysteryLevel): MysteryReveal 
 }
 
 function basicClueFor(taxon: Taxon): string {
+  const seeded = seedTaxonById(taxon.id)?.basicClue;
+  if (seeded) {
+    return seeded;
+  }
   switch (taxon.category) {
     case 'bird':
       return 'A bird that lives near people and trees.';
@@ -68,6 +73,10 @@ function basicClueFor(taxon: Taxon): string {
 }
 
 function detailedClueFor(taxon: Taxon): string {
+  const seeded = seedTaxonById(taxon.id)?.detailedClue;
+  if (seeded) {
+    return seeded;
+  }
   if (taxon.habitat) {
     return `Often found around ${taxon.habitat.toLowerCase()}. Look at shape and color before you decide.`;
   }

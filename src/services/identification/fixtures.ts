@@ -15,6 +15,7 @@ export const IDENTIFICATION_FIXTURE_IDS = [
   'uncertain-mushroom',
   'blurry',
   'unsupported',
+  'rare-find',
 ] as const;
 
 export type IdentificationFixtureId = (typeof IDENTIFICATION_FIXTURE_IDS)[number];
@@ -187,5 +188,18 @@ export const IDENTIFICATION_FIXTURES: Record<IdentificationFixtureId, Identifica
   unsupported: {
     kind: 'unsupported',
     reason: 'Wildmark is looking for living organisms.',
+  },
+  'rare-find': {
+    kind: 'highConfidence',
+    taxonId: 'taxon-texas-spiny-lizard',
+    commonName: 'Texas Spiny Lizard',
+    scientificName: 'Sceloporus olivaceus',
+    confidence: 0.84,
+    trail: [
+      { rank: 'kingdom', label: 'Animal' },
+      { rank: 'class', label: 'Reptile' },
+      { rank: 'genus', label: 'Spiny lizard' },
+      { rank: 'species', label: 'Texas Spiny Lizard' },
+    ],
   },
 };

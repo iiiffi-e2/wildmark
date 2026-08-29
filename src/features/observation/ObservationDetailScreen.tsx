@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Button } from '@/src/design-system/components/Button';
@@ -9,16 +9,21 @@ import { useTheme } from '@/src/design-system/theme';
 import { useWildmark } from '@/src/app-state/WildmarkProvider';
 import { formatJournalDate } from '@/src/lib/datetime';
 import { SEED_TAXA } from '@/src/data/seed';
+import { privacySafeLocality } from '@/src/domain/location/privacy';
 
 export function ObservationDetailScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { observationById, taxonById, correctObservation } = useWildmark();
+  const { observationById, taxonById, correctObservation, updateObservation, user } = useWildmark();
   const observation = id ? observationById(id) : undefined;
   const taxon = observation?.taxonId ? taxonById(observation.taxonId) : undefined;
   const [notes, setNotes] = useState(observation?.notes ?? '');
   const [correcting, setCorrecting] = useState(false);
+
+  useEffect(() => {
+    setNotes(observation?.notes ?? '');
+  }, [observation?.notes]);
 
   if (!observation) {
     return (
@@ -45,6 +50,11 @@ export function ObservationDetailScreen() {
         <Text variant="scientific" color="secondary" style={{ marginTop: theme.space[8] }}>
           {taxon?.scientificName ?? observation.identificationStatus}
         </Text>
+        {privacySafeLocality(observation.localityLabel, user.locationMode) ? (
+          <Text variant="bodySmall" color="tertiary" style={{ marginTop: theme.space[12] }}>
+            {privacySafeLocality(observation.localityLabel, user.locationMode)}
+          </Text>
+        ) : null}
         {observation.confidence != null ? (
           <Text variant="bodySmall" color="tertiary" style={{ marginTop: theme.space[12] }}>
             Confidence noted, not announced as certainty.
@@ -68,6 +78,16 @@ export function ObservationDetailScreen() {
           }}
         />
         <View style={{ marginTop: theme.space[24], gap: theme.space[12] }}>
+          <Button
+            variant="secondary"
+            label="Save notes"
+            onPress={() => void updateObservation(observation.id, { notes })}
+          />
+          <Button
+            variant="secondary"
+            label={observation.favorite ? 'Remove favorite' : 'Favorite this encounter'}
+            onPress={() => void updateObservation(observation.id, { favorite: !observation.favorite })}
+          />
           {taxon ? <Button variant="secondary" label="Open species" onPress={() => router.push(`/taxon/${taxon.id}`)} /> : null}
           <Button variant="ghost" label="Correct identification" onPress={() => setCorrecting((value) => !value)} />
         </View>

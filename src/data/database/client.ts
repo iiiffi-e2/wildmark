@@ -32,6 +32,8 @@ function defaultUser(): User {
     locationMode: 'none',
     onboardingCompleted: false,
     appearance: 'system',
+    soundEnabled: true,
+    favoriteTaxonId: null,
   };
 }
 
@@ -107,6 +109,7 @@ function wrapForPersistence(store: MemoryStore, persist: () => void): DiscoveryD
     quests: persistAfter(inner.quests),
     syncQueue: persistAfter(inner.syncQueue),
     events: inner.events,
+    milestones: persistAfter(inner.milestones),
   };
 }
 
@@ -233,6 +236,7 @@ export async function openPersistence(): Promise<AppPersistence> {
       store.questProgress = [];
       store.syncActions = [];
       store.events = [];
+      store.milestones = [];
       seedStore(store);
       currentUser = { ...defaultUser(), id: currentUser.id };
       writeUser(store, currentUser);

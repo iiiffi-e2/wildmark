@@ -350,10 +350,43 @@ export function createSqliteRepositories(db: SqliteLike): DiscoveryDependencies 
           new Date().toISOString(),
         );
       },
+      async list() {
+        const rows = await db.getAllAsync<{ type: string; payload_json: string }>(
+          'SELECT type, payload_json FROM sync_queue',
+        );
+        return rows.map((row) => ({
+          type: row.type,
+          payload: JSON.parse(row.payload_json) as Record<string, unknown>,
+        }));
+      },
     },
     events: {
       emit() {
         // Domain listeners are attached at the application layer.
+      },
+    },
+    milestones: {
+      async list(userId) {
+        return db.getAllAsync<{ id: string; name: string; unlockedAt: string }>(
+          `SELECT milestone_id as id, name, unlocked_at as unlockedAt
+           FROM user_milestones WHERE user_id = ?`,
+          [userId],
+        );
+      },
+      async add(userId, milestones) {
+        for (const milestone of milestones) {
+          await db.runAsync(
+            `INSERT OR IGNORE INTO user_milestones (user_id, milestone_id, name, unlocked_at)
+             VALUES (?, ?, ?, ?)`,
+            userId,
+            milestone.id,
+            milestone.name,
+            milestone.unlockedAt,
+          );
+        }
+      },
+      async reset(userId) {
+        await db.runAsync('DELETE FROM user_milestones WHERE user_id = ?', userId);
       },
     },
   };
