@@ -1,5 +1,5 @@
 import { View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { Button } from '@/src/design-system/components/Button';
 import { Screen } from '@/src/design-system/components/Screen';
 import { Text } from '@/src/design-system/components/Text';
@@ -111,7 +111,7 @@ export function SettingsScreen() {
         </View>
       ) : null}
       <View style={{ marginTop: theme.space[32] }}>
-        <Button label="Your month in the wild" onPress={() => router.push('/recap')} />
+        <Button label="Your month in the wild" onPress={() => router.push('/recap' as Href)} />
       </View>
       <Text variant="title" style={{ marginTop: theme.space[40] }}>
         Field instrument

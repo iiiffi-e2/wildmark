@@ -24,7 +24,17 @@ describe('fixture catalog', () => {
       ]),
     );
     expect(SEED_QUESTS.map((item) => item.name)).toEqual(
-      expect.arrayContaining(['First Five', 'Pollinator Hunt', 'Backyard Birds', 'After Dark']),
+      expect.arrayContaining([
+        'The First Five',
+        'The Pollinator Hunt',
+        'Backyard Safari',
+        'After Dark',
+        'Morning Chorus',
+        'Tiny Things',
+      ]),
+    );
+    expect(SEED_COLLECTIONS.map((item) => item.name)).toEqual(
+      expect.arrayContaining(['Things That Sting', 'Tiny Things']),
     );
   });
 });

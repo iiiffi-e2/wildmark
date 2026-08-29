@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Button } from '@/src/design-system/components/Button';
@@ -18,12 +18,13 @@ export function ObservationDetailScreen() {
   const { observationById, taxonById, correctObservation, updateObservation, user } = useWildmark();
   const observation = id ? observationById(id) : undefined;
   const taxon = observation?.taxonId ? taxonById(observation.taxonId) : undefined;
-  const [notes, setNotes] = useState(observation?.notes ?? '');
+  const [notesState, setNotesState] = useState({
+    id: observation?.id ?? '',
+    value: observation?.notes ?? '',
+  });
   const [correcting, setCorrecting] = useState(false);
-
-  useEffect(() => {
-    setNotes(observation?.notes ?? '');
-  }, [observation?.notes]);
+  const notes = notesState.id === (observation?.id ?? '') ? notesState.value : (observation?.notes ?? '');
+  const setNotes = (value: string) => setNotesState({ id: observation?.id ?? '', value });
 
   if (!observation) {
     return (

@@ -1,8 +1,7 @@
 import type { OccurrenceClass } from '@/src/services/occurrence/mock';
 import type { Taxon } from '../taxa/types';
 import type { ContextualRarity, PersonalRecord } from './types';
-import type { UserTaxon } from '../observations/types';
-import type { Observation } from '../observations/types';
+import type { Observation, UserTaxon } from '../observations/types';
 
 export function rarityFromOccurrence(occurrenceClass?: OccurrenceClass, taxon?: Taxon | null): ContextualRarity | null {
   if (taxon?.habitat === 'roadside' && taxon.category === 'plant') {

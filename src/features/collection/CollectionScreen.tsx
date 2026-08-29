@@ -19,12 +19,13 @@ export function CollectionScreen() {
   const closest = [...collectionProgress]
     .filter((item) => item.totalCount > item.discoveredCount)
     .sort((a, b) => a.totalCount - a.discoveredCount - (b.totalCount - b.discoveredCount))[0];
-  const mysteryFromClosest = closest
+  const mysteryFromClosest = (closest
     ? collectionTaxonIds(closest.collectionId)
         .map((id) => taxa.find((taxon) => taxon.id === id))
-        .filter((taxon): taxon is NonNullable<typeof taxon> => Boolean(taxon) && !discoveredIds.has(taxon.id))
-        .slice(0, 4)
-    : taxa.filter((taxon) => !discoveredIds.has(taxon.id)).slice(0, 4);
+        .filter((taxon): taxon is (typeof taxa)[number] => taxon != null)
+        .filter((taxon) => !discoveredIds.has(taxon.id))
+    : taxa.filter((taxon) => !discoveredIds.has(taxon.id))
+  ).slice(0, 4);
 
   return (
     <Screen>
